@@ -30,18 +30,18 @@ async def lifespan(app: FastAPI):
     logger.info("Lifespan startup: Loading reranker model...")
     reranker_instance = None
     try:
-        # Get configuration from environment variables
+        # Get configuration from environment variables or default settings
         model_name = get_effective_model_name(settings)
-        logger.info(f"Loading reranker type: {settings.reranker_type}")
+        logger.info(f"Loading reranker type: {settings.backend_type}")
         logger.info(f"Loading model: {model_name}")
 
         # Initialize reranker based on type
-        if settings.reranker_type == "pytorch":
+        if settings.backend_type == "pytorch":
             reranker_instance = PyTorchReranker(model_name=model_name)
-        elif settings.reranker_type == "mlx":
+        elif settings.backend_type == "mlx":
             reranker_instance = MLXReranker(model_name=model_name)
         else:
-            raise ValueError(f"Unsupported reranker type: {settings.reranker_type}")
+            raise ValueError(f"Unsupported reranker type: {settings.backend_type}")
 
         app.state.reranker = reranker_instance  # Store instance in app state
         app.state.settings = settings  # Store settings for reference

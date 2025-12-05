@@ -41,6 +41,7 @@ docs/
 - Use uv for dependency management
 
 ## Using uv 
+- Always use uv: Dependencies, running, venv, python
 - use 'uv add <dependency name>' to add dependencies
 - use 'uv remove <dependency name>' to remove dependencies
 - Create uv scripts for running scripts in pyproject.toml [project.scripts]

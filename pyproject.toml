@@ -1,16 +1,16 @@
 [build-system]
-requires = ["setuptools>=61.0"]
-build-backend = "setuptools.build_meta"
+requires = ["hatchling"]
+build-backend = "hatchling.build"
 
 [project]
 name = "local-reranker"
-version = "0.1.1" # Bump version due to dependency updates
+version = "0.2.0"
 authors = [
   { name="Olaf Geibig", email="olaf@pobox.com" }, 
 ]
 description = "A lightweight, local reranker API implementation compatible with Jina."
 readme = "README.md"
-requires-python = ">=3.9"
+requires-python = ">=3.12"
 classifiers = [
     "Programming Language :: Python :: 3",
     "License :: OSI Approved :: MIT License", 
@@ -20,39 +20,30 @@ classifiers = [
     "Intended Audience :: Developers",
 ]
 
-keywords = ["reranker", "local", "jina", "api", "rag", "nlp", "machine learning"]
+keywords = ["reranker", "local", "api", "rag", "nlp", "machine learning"]
 
 dependencies = [
-    "fastapi>=0.109.0,<0.110.0",
-    "uvicorn[standard]>=0.29.0,<0.30.0",
-    "pydantic>=2.0,<3.0",
-    "pydantic-settings>=2.0.0",
-    "sentence-transformers>=4.0.2,<4.1.0",
-    "torch>=2.0.0,<3.0.0",
-    "transformers>=4.51.3,<5.0.0",
-    "tokenizers>=0.21.1,<0.22.0",
-    "accelerate>=0.28.0,<0.29.0",
-    "einops>=0.8.0,<0.9.0",
-    "mlx>=0.20.0",
-    "mlx-lm>=0.21.0",
-    "safetensors>=0.4.0",
+    "fastapi>=0.115.0",
+    "uvicorn[standard]>=0.38.0",
+    "pydantic>=2.10.0",
+    "pydantic-settings>=2.6.0",
+    "sentence-transformers>=5.0.0",
+    "torch>=2.5.0",
+    "transformers>=4.57.0",
+    "tokenizers>=0.21.0",
+    "accelerate>=1.2.0",
+    "einops>=0.8.0",
+    "mlx>=0.30.0",
+    "mlx-lm>=0.28.0",
+    "safetensors>=0.5.0",
 ] 
-
-[project.optional-dependencies]
-dev = [
-    "pytest>=8.0.0,<9.0.0",
-    "pytest-mock>=3.0.0,<4.0.0", 
-    "httpx>=0.27.0,<0.28.0", 
-    "uvicorn[standard]>=0.29.0,<0.30.0", 
-    "ruff>=0.4.0,<0.5.0", 
-]
 
 [project.urls]
 "Homepage" = "https://github.com/olafgeibig/local-reranker" 
 "Bug Tracker" = "https://github.com/olafgeibig/local-reranker/issues" 
 
 [project.scripts]
-cli = "local_reranker.cli:main"
+local-reranker = "local_reranker.cli:main"
 
 [tool.pytest.ini_options]
 markers = [
@@ -62,8 +53,9 @@ markers = [
 
 [dependency-groups]
 dev = [
-    "httpx>=0.27.2",
-    "mypy>=1.19.0",
+    "httpx>=0.28.0",
+    "mypy>=1.14.0",
     "pytest>=8.3.5",
     "pytest-mock>=3.14.0",
+    "ruff>=0.9.0",
 ]

@@ -9,7 +9,7 @@ class Settings(BaseSettings):
     """Configuration settings for the reranker service."""
 
     # Reranker configuration
-    reranker_type: str = "pytorch"
+    backend_type: str = "pytorch"
     model_name: Optional[str] = None  # None = use reranker default
 
     # Server configuration
@@ -23,7 +23,7 @@ class Settings(BaseSettings):
         case_sensitive = False
 
 
-# Default models for each reranker type
+# Default models for each backend type
 RERANKER_DEFAULTS: Dict[str, str] = {
     "pytorch": "jinaai/jina-reranker-v2-base-multilingual",
     "mlx": "jinaai/jina-reranker-v3-mlx",
@@ -38,16 +38,16 @@ def get_effective_model_name(settings: Settings) -> str:
     if settings.model_name:
         return settings.model_name
 
-    if settings.reranker_type in RERANKER_DEFAULTS:
-        return RERANKER_DEFAULTS[settings.reranker_type]
+    if settings.backend_type in RERANKER_DEFAULTS:
+        return RERANKER_DEFAULTS[settings.backend_type]
 
     raise ValueError(
-        f"No default model configured for reranker type: {settings.reranker_type}"
+        f"No default model configured for reranker type: {settings.backend_type}"
     )
 
 
-def get_available_rerankers() -> Dict[str, str]:
-    """Get available reranker types and their descriptions."""
+def get_available_backends() -> Dict[str, str]:
+    """Get available backend types and their descriptions."""
     return {
         "pytorch": "PyTorch-based reranker using sentence-transformers",
         "mlx": "MLX-based reranker optimized for Apple Silicon (M1/M2/M3)",

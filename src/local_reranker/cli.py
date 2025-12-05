@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Command line interface for the local reranker service."""
+"""Command line interface for local reranker service."""
 
 import argparse
 import logging
@@ -7,7 +7,7 @@ import os
 import sys
 
 import uvicorn
-from .config import Settings, get_available_rerankers, get_effective_model_name
+from .config import Settings, get_available_backends, get_effective_model_name
 
 logger = logging.getLogger(__name__)
 
@@ -18,8 +18,10 @@ def run_server(settings: Settings) -> None:
     Args:
         settings: Configuration settings.
     """
-    # Set environment variables for the API to use
-    os.environ["RERANKER_RERANKER_TYPE"] = settings.reranker_type
+    # Set environment variables for the API module to pick up
+    import os
+
+    os.environ["RERANKER_BACKEND_TYPE"] = settings.backend_type
     if settings.model_name:
         os.environ["RERANKER_MODEL_NAME"] = settings.model_name
 
@@ -35,17 +37,17 @@ def run_server(settings: Settings) -> None:
 def config_show(settings: Settings) -> None:
     """Show current configuration."""
     print("Current Configuration:")
-    print(f"  Reranker Type: {settings.reranker_type}")
+    print(f"  Backend Type: {settings.backend_type}")
     print(f"  Model Name: {get_effective_model_name(settings)}")
     print(f"  Host: {settings.host}")
     print(f"  Port: {settings.port}")
     print(f"  Log Level: {settings.log_level}")
     print(f"  Reload: {settings.reload}")
     print()
-    print("Available Rerankers:")
-    for reranker_type, description in get_available_rerankers().items():
-        marker = " (current)" if reranker_type == settings.reranker_type else ""
-        print(f"  {reranker_type}: {description}{marker}")
+    print("Available Backends:")
+    for backend_type, description in get_available_backends().items():
+        marker = " (current)" if backend_type == settings.backend_type else ""
+        print(f"  {backend_type}: {description}{marker}")
 
 
 def main() -> None:
@@ -60,11 +62,11 @@ def main() -> None:
             description="Run the Local Reranker API server."
         )
         parser.add_argument(
-            "--reranker",
+            "--backend",
             type=str,
             default="pytorch",
-            choices=list(get_available_rerankers().keys()),
-            help="Reranker type to use (default: pytorch).",
+            choices=list(get_available_backends().keys()),
+            help="Backend type to use (default: pytorch).",
         )
         parser.add_argument(
             "--model",
@@ -105,11 +107,11 @@ def main() -> None:
             "serve", help="Run the Local Reranker API server."
         )
         server_parser.add_argument(
-            "--reranker",
+            "--backend",
             type=str,
             default="pytorch",
-            choices=list(get_available_rerankers().keys()),
-            help="Reranker type to use (default: pytorch).",
+            choices=list(get_available_backends().keys()),
+            help="Backend type to use (default: pytorch).",
         )
         server_parser.add_argument(
             "--model",
@@ -162,7 +164,7 @@ def main() -> None:
     # Handle serve command
     if args.command == "serve":
         settings = Settings(
-            reranker_type=args.reranker,
+            backend_type=args.backend,
             model_name=args.model,
             host=args.host,
             port=args.port,
@@ -173,7 +175,7 @@ def main() -> None:
         logger.info(
             f"Starting Local Reranker API server on {settings.host}:{settings.port}"
         )
-        logger.info(f"Using reranker: {settings.reranker_type}")
+        logger.info(f"Using reranker: {settings.backend_type}")
         logger.info(f"Using model: {get_effective_model_name(settings)}")
         run_server(settings)
 

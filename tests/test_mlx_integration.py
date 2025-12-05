@@ -6,7 +6,13 @@ from unittest.mock import Mock, patch
 from fastapi.testclient import TestClient
 
 from local_reranker.api import app
-from local_reranker.models import RerankRequest, RerankResponse
+from local_reranker.models import (
+    RerankRequest,
+    RerankResponse,
+    RerankResult,
+    RerankDocument,
+)
+from local_reranker.config import Settings, get_effective_model_name
 
 
 class TestMLXAPIIntegration:
@@ -14,8 +20,16 @@ class TestMLXAPIIntegration:
 
     @patch("local_reranker.api.MLXReranker")
     @patch("local_reranker.api.PyTorchReranker")
-    def test_api_startup_with_mlx_backend(self, mock_pytorch, mock_mlx):
+    @patch("local_reranker.api.settings")
+    @patch("local_reranker.api.get_effective_model_name")
+    def test_api_startup_with_mlx_backend(
+        self, mock_get_model_name, mock_settings, mock_pytorch, mock_mlx
+    ):
         """Test API startup with MLX backend."""
+        # Configure mock settings to use MLX backend
+        mock_settings.backend_type = "mlx"
+        mock_get_model_name.return_value = "jinaai/jina-reranker-v3-mlx"
+
         mock_mlx_instance = Mock()
         mock_mlx.return_value = mock_mlx_instance
 
@@ -27,15 +41,27 @@ class TestMLXAPIIntegration:
 
     @patch("local_reranker.api.MLXReranker")
     @patch("local_reranker.api.PyTorchReranker")
-    def test_api_rerank_endpoint_with_mlx(self, mock_pytorch, mock_mlx):
+    @patch("local_reranker.api.settings")
+    @patch("local_reranker.api.get_effective_model_name")
+    def test_api_rerank_endpoint_with_mlx(
+        self, mock_get_model_name, mock_settings, mock_pytorch, mock_mlx
+    ):
         """Test rerank endpoint with MLX backend."""
+        # Configure mock settings to use MLX backend
+        mock_settings.backend_type = "mlx"
+        mock_get_model_name.return_value = "jinaai/jina-reranker-v3-mlx"
+
         mock_mlx_instance = Mock()
         mock_mlx.return_value = mock_mlx_instance
 
         # Mock MLX reranker results
         mock_mlx_results = [
-            {"document": "doc1", "relevance_score": 0.9, "index": 0, "embedding": None},
-            {"document": "doc2", "relevance_score": 0.7, "index": 1, "embedding": None},
+            RerankResult(
+                document=RerankDocument(text="doc1"), relevance_score=0.9, index=0
+            ),
+            RerankResult(
+                document=RerankDocument(text="doc2"), relevance_score=0.7, index=1
+            ),
         ]
 
         mock_mlx_instance.rerank.return_value = mock_mlx_results
@@ -99,8 +125,15 @@ class TestMLXAPIIntegration:
 
     @patch("local_reranker.api.MLXReranker")
     @patch("local_reranker.api.PyTorchReranker")
-    def test_api_mlx_model_loading_failure(self, mock_pytorch, mock_mlx):
+    @patch("local_reranker.api.settings")
+    @patch("local_reranker.api.get_effective_model_name")
+    def test_api_mlx_model_loading_failure(
+        self, mock_get_model_name, mock_settings, mock_pytorch, mock_mlx
+    ):
         """Test API behavior when MLX model loading fails."""
+        # Configure mock settings to use MLX backend
+        mock_settings.backend_type = "mlx"
+        mock_get_model_name.return_value = "jinaai/jina-reranker-v3-mlx"
         mock_mlx.side_effect = RuntimeError("MLX model loading failed")
 
         with TestClient(app) as client:
