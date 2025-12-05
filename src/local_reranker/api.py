@@ -7,15 +7,15 @@ import uuid
 from typing import List
 from contextlib import asynccontextmanager
 import torch
-import argparse
 
-from fastapi import FastAPI, HTTPException, Depends, Request 
+from fastapi import FastAPI, HTTPException, Depends, Request
 from .models import RerankRequest, RerankResponse, RerankResult, RerankDocument
-from .reranker import Reranker, DEFAULT_MODEL_NAME 
+from .reranker import Reranker, DEFAULT_MODEL_NAME
 
 # --- Logging Setup ---
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
 
 # --- App Lifespan Management (Load model on startup, cleanup on shutdown) ---
 @asynccontextmanager
@@ -26,51 +26,62 @@ async def lifespan(app: FastAPI):
     try:
         # TODO: Make model name configurable (e.g., via environment variable)
         reranker_instance = Reranker(model_name=DEFAULT_MODEL_NAME)
-        app.state.reranker = reranker_instance # Store instance in app state
+        app.state.reranker = reranker_instance  # Store instance in app state
         logger.info("Reranker model loaded successfully and stored in app state.")
     except Exception as e:
-        logger.error(f"Fatal error: Could not load reranker model during startup: {e}", exc_info=True)
-        app.state.reranker = None # Ensure it's None if loading failed
-    
-    yield # Application runs here
-    
-    # --- Cleanup logic ---    
+        logger.error(
+            f"Fatal error: Could not load reranker model during startup: {e}",
+            exc_info=True,
+        )
+        app.state.reranker = None  # Ensure it's None if loading failed
+
+    yield  # Application runs here
+
+    # --- Cleanup logic ---
     logger.info("Lifespan shutdown: Releasing resources...")
-    current_reranker = getattr(app.state, 'reranker', None)
-    if current_reranker and hasattr(current_reranker.model, 'cpu'): # Basic check if it's a torch model
+    current_reranker = getattr(app.state, "reranker", None)
+    if current_reranker and hasattr(
+        current_reranker.model, "cpu"
+    ):  # Basic check if it's a torch model
         try:
             # Ensure model and tensors are moved to CPU before deletion if applicable
             # Note: sentence-transformers CrossEncoder might not need explicit deletion
             # but clearing cache is good practice.
             if torch.cuda.is_available():
-                torch.cuda.empty_cache() # Clear CUDA cache if applicable
+                torch.cuda.empty_cache()  # Clear CUDA cache if applicable
             logger.info("Model resources released.")
         except Exception as e:
             logger.error(f"Error during model resource cleanup: {e}", exc_info=True)
     app.state.reranker = None
 
+
 # --- FastAPI App Initialization ---
 app = FastAPI(
     title="Local Reranker API",
     description="Provides a local implementation of reranker APIs (starting with Jina).",
-    version="0.1.0", 
-    lifespan=lifespan 
+    version="0.1.0",
+    lifespan=lifespan,
 )
 
-# --- Dependency Injection for Reranker --- 
-def get_reranker(request: Request): 
+
+# --- Dependency Injection for Reranker ---
+def get_reranker(request: Request):
     # Retrieve the instance from app.state managed by lifespan
-    reranker = getattr(request.app.state, 'reranker', None)
+    reranker = getattr(request.app.state, "reranker", None)
     if reranker is None:
-        logger.error("Reranker instance is not available via app.state. Model loading might have failed during startup.")
-        raise HTTPException(status_code=503, detail="Service Unavailable: Reranker model not loaded.")
+        logger.error(
+            "Reranker instance is not available via app.state. Model loading might have failed during startup."
+        )
+        raise HTTPException(
+            status_code=503, detail="Service Unavailable: Reranker model not loaded."
+        )
     return reranker
+
 
 # --- API Endpoints ---
 @app.post("/v1/rerank", response_model=RerankResponse)
 async def rerank_endpoint(
-    request_body: RerankRequest, 
-    reranker: Reranker = Depends(get_reranker) 
+    request_body: RerankRequest, reranker: Reranker = Depends(get_reranker)
 ):
     """Handles reranking requests, compatible with Jina's /v1/rerank API."""
     start_time = time.time()
@@ -85,13 +96,13 @@ async def rerank_endpoint(
             query=request_body.query,
             documents=request_body.documents,
         )
-        
+
         # 2. Sort results by score (descending)
         indexed_scores.sort(key=lambda x: x[1], reverse=True)
 
         # 3. Apply top_n limit
         if request_body.top_n is not None:
-            indexed_scores = indexed_scores[:request_body.top_n]
+            indexed_scores = indexed_scores[: request_body.top_n]
 
         # 4. Format the response
         results: List[RerankResult] = []
@@ -99,60 +110,46 @@ async def rerank_endpoint(
             doc_content = None
             if request_body.return_documents:
                 original_doc = request_body.documents[index]
-                doc_text = original_doc if isinstance(original_doc, str) else original_doc.get("text", "")
+                doc_text = (
+                    original_doc
+                    if isinstance(original_doc, str)
+                    else original_doc.get("text", "")
+                )
                 doc_content = RerankDocument(text=doc_text)
 
             results.append(
                 RerankResult(
-                    document=doc_content,
-                    index=index,
-                    relevance_score=float(score) 
+                    document=doc_content, index=index, relevance_score=float(score)
                 )
             )
         # Add top score and first few characters of top document to the log message
         top_doc_preview = ""
-        if results and request_body.return_documents and results[0].document:
-            top_doc_preview = results[0].document.text[:50]
-        logger.info(f"[{request_id}] Reranking done, top score: {results[0].relevance_score}, preview: {top_doc_preview}")
+        top_score = "N/A"
+        if results:
+            top_score = results[0].relevance_score
+            if request_body.return_documents and results[0].document:
+                top_doc_preview = results[0].document.text[:50]
+        logger.info(
+            f"[{request_id}] Reranking done, top score: {top_score}, preview: {top_doc_preview}"
+        )
         # logger.info(f"results: {results}")
         response = RerankResponse(id=request_id, results=results)
-        
+
         end_time = time.time()
-        logger.debug(f"[{request_id}] Rerank request processed in {end_time - start_time:.4f} seconds.")
+        logger.debug(
+            f"[{request_id}] Rerank request processed in {end_time - start_time:.4f} seconds."
+        )
         return response
     except Exception as e:
-        logger.error(f"[{request_id}] Error processing rerank request: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Internal Server Error during reranking.")
+        logger.error(
+            f"[{request_id}] Error processing rerank request: {e}", exc_info=True
+        )
+        raise HTTPException(
+            status_code=500, detail="Internal Server Error during reranking."
+        )
+
 
 @app.get("/health")
 def health_check():
     """Basic health check endpoint."""
     return {"status": "ok"}
-
-# --- Main block for running with uvicorn directly ---
-
-def run_server():
-    """Entry point for running the server via command line script."""
-    import uvicorn
-    parser = argparse.ArgumentParser(description="Run the Local Reranker API server.")
-    parser.add_argument("--host", type=str, default="0.0.0.0", help="Host to bind the server to.")
-    parser.add_argument("--port", type=int, default=8010, help="Port to bind the server to.")
-    parser.add_argument("--log-level", type=str, default="info", help="Uvicorn log level.")
-    # Add other arguments like --model-name, --device if desired
-
-    args = parser.parse_args()
-
-    # You can customize host, port, log_level etc. here, perhaps using environment variables
-    # For simplicity, using defaults that match common dev setups.
-    # uvicorn.run("local_reranker.api:app", host="0.0.0.0", port=8010, reload=False, log_level="info")
-    uvicorn.run(
-        "local_reranker.api:app", 
-        host=args.host, 
-        port=args.port, 
-        log_level=args.log_level,
-        reload=False # Typically False for production/installed script
-    )
-
-if __name__ == "__main__":
-    # This allows running the server directly using `python -m src.local_reranker.api`
-    run_server()
