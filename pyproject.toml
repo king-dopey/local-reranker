@@ -33,6 +33,9 @@ dependencies = [
     "tokenizers>=0.21.1,<0.22.0",
     "accelerate>=0.28.0,<0.29.0",
     "einops>=0.8.0,<0.9.0",
+    "mlx>=0.20.0",
+    "mlx-lm>=0.21.0",
+    "safetensors>=0.4.0",
 ] 
 
 [project.optional-dependencies]

@@ -8,26 +8,76 @@ This project provides a FastAPI-based web service that implements a reranking AP
 
 ## Features
 
-*   **Jina Compatible API**: Implements the `/v1/rerank` endpoint structure.
-*   **Local Hosting**: Run the reranker model entirely on your own infrastructure.
-*   **Sentence Transformers**: Uses the powerful `sentence-transformers` library for underlying model handling and inference.
-*   **Configurable Model**: (Future) Easily switch between different Cross-Encoder models.
+*   **Jina Compatible API**: Implements `/v1/rerank` endpoint structure.
+*   **Local Hosting**: Run reranker model entirely on your own infrastructure.
+*   **Multiple Backends**: Supports both PyTorch and MLX backends for optimal performance.
+*   **Apple Silicon Optimization**: MLX backend provides optimized performance for M1/M2/M3 chips.
+*   **Sentence Transformers**: Uses powerful `sentence-transformers` library for PyTorch backend.
+*   **Configurable Model**: Easily switch between different reranker models and backends.
 *   **Modern FastAPI**: Built using modern FastAPI features like `lifespan` for resource management.
 *   **Async Support**: Leverages asynchronous processing for potentially better concurrency.
 
 ## Requirements
 
-*   Python 3.8+
+*   Python 3.9+
 *   [uv](https://github.com/astral-sh/uv) (for installation and package management - recommended)
 *   Sufficient RAM and compute resources (CPU or GPU) depending on the chosen reranker model.
 
+### Backend-Specific Requirements
+
+**PyTorch Backend:**
+*   PyTorch 2.0+ (automatically installed)
+*   CUDA/MPS support for GPU acceleration (optional)
+
+**MLX Backend (Apple Silicon only):**
+*   Apple Silicon (M1/M2/M3) Mac
+*   MLX and MLX-LM libraries (automatically installed)
+*   Optimized for memory efficiency and performance on Apple chips
+
 ## Installation
 
-`uvx local-reranker [options]`
+```bash
+# Install with MLX support (for Apple Silicon)
+uv add mlx mlx-lm safetensors
 
+# Or install all dependencies
+uv pip install -e ".[dev]"
+```
+
+## Usage
+
+### Command Line Options
+
+```bash
+cli serve --reranker <backend> [options]
+```
+
+**Available Backends:**
+*   `--reranker pytorch`: PyTorch-based reranker (default, cross-platform)
+*   `--reranker mlx`: MLX-based reranker (Apple Silicon optimized)
+
+**Other Options:**
 *   `--host 0.0.0.0`: Makes the server accessible on your network. Default 127.0.0.1
-*   `--port 8010`: Specifies the port (adjust if needed). Defaul 8010
+*   `--port 8010`: Specifies the port (adjust if needed). Default 8010
 *   `--reload`: Automatically restarts the server when code changes are detected (useful for development).
+
+### Examples
+
+**PyTorch Backend (default):**
+```bash
+cli serve --reranker pytorch --model jinaai/jina-reranker-v2-base-multilingual
+```
+
+**MLX Backend (Apple Silicon):**
+```bash
+cli serve --reranker mlx --model jinaai/jina-reranker-v3-mlx
+```
+
+**Configuration Management:**
+```bash
+# Show current configuration and available backends
+cli config show
+```
 
 ## Development
 
@@ -76,7 +126,11 @@ uvicorn local_reranker.api:app --host 0.0.0.0 --port 8010 --reload
 uv run uvicorn local_reranker.api:app --host 0.0.0.0 --port 8000 --reload
 ```
 
-The server will start, and the first time it runs, it will download the default reranker model (`jina-reranker-v2-base-multilingual`), which may take some time.
+The server will start, and the first time it runs, it will download the default reranker model:
+*   **PyTorch**: `jina-reranker-v2-base-multilingual` (~1.4GB)
+*   **MLX**: `jina-reranker-v3-mlx` (~1.2GB, Apple Silicon optimized)
+
+Model download may take some time depending on your internet connection.
 
 ## Usage
 
@@ -120,3 +174,43 @@ python -m pytest
 
 # Or using uv run
 uv run pytest
+```
+
+## MLX Backend Troubleshooting
+
+### Common Issues
+
+**MLX not found:**
+```bash
+# Ensure you're on Apple Silicon
+uname -m  # Should show arm64
+
+# Install MLX dependencies
+uv add mlx mlx-lm safetensors
+```
+
+**Model download fails:**
+```bash
+# Check internet connection
+# Try manual download
+huggingface-cli download jinaai/jina-reranker-v3-mlx
+```
+
+**Performance issues:**
+```bash
+# Check MLX is using GPU (if available)
+python -c "import mlx; print(mlx.metal.is_available())"
+
+# Monitor memory usage
+top -o mem | grep python
+```
+
+### Environment Variables
+
+```bash
+# Force MLX backend
+export RERANKER_RERANKER_TYPE=mlx
+
+# Custom model path
+export RERANKER_MODEL_NAME=custom-mlx-model
+```

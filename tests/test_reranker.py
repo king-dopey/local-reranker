@@ -6,6 +6,7 @@ from unittest.mock import Mock, patch
 
 from local_reranker.reranker import Reranker as RerankerProtocol
 from local_reranker.reranker_pytorch import Reranker as PyTorchReranker
+from local_reranker.reranker_mlx import Reranker as MLXReranker
 from local_reranker.models import RerankRequest
 
 

@@ -26,6 +26,7 @@ class Settings(BaseSettings):
 # Default models for each reranker type
 RERANKER_DEFAULTS: Dict[str, str] = {
     "pytorch": "jinaai/jina-reranker-v2-base-multilingual",
+    "mlx": "jinaai/jina-reranker-v3-mlx",
     # Future implementations
     # "onnx": "some/onnx-model",
     # "tensorflow": "some/tf-model",
@@ -49,6 +50,7 @@ def get_available_rerankers() -> Dict[str, str]:
     """Get available reranker types and their descriptions."""
     return {
         "pytorch": "PyTorch-based reranker using sentence-transformers",
+        "mlx": "MLX-based reranker optimized for Apple Silicon (M1/M2/M3)",
         # Future implementations
         # "onnx": "ONNX-based reranker for CPU optimization",
         # "tensorflow": "TensorFlow-based reranker",
