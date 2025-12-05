@@ -10,6 +10,7 @@ import httpx
 
 # Import the CLI functions
 from local_reranker.cli import run_server, main
+from local_reranker.config import Settings
 
 
 class TestRunServer:
@@ -18,7 +19,8 @@ class TestRunServer:
     @patch("local_reranker.cli.uvicorn.run")
     def test_run_server_default_parameters(self, mock_uvicorn_run):
         """Test run_server with default parameters."""
-        run_server()
+        settings = Settings()
+        run_server(settings)
 
         mock_uvicorn_run.assert_called_once_with(
             "local_reranker.api:app",
@@ -31,12 +33,13 @@ class TestRunServer:
     @patch("local_reranker.cli.uvicorn.run")
     def test_run_server_custom_parameters(self, mock_uvicorn_run):
         """Test run_server with custom parameters."""
-        run_server(
+        settings = Settings(
             host="127.0.0.1",
             port=8000,
             log_level="debug",
             reload=True,
         )
+        run_server(settings)
 
         mock_uvicorn_run.assert_called_once_with(
             "local_reranker.api:app",
@@ -214,6 +217,52 @@ class TestArgumentParser:
                     mock_run.assert_called_once()
                     args = mock_run.call_args[1]
                     assert args["log_level"] == log_level
+
+    @patch("local_reranker.cli.run_server")
+    @patch("sys.argv", ["local-reranker", "--reranker", "pytorch"])
+    def test_main_reranker_argument(self, mock_run_server):
+        """Test main function with custom reranker."""
+        main()
+
+        mock_run_server.assert_called_once()
+        args = mock_run_server.call_args[0][0]  # First positional argument (Settings)
+        assert args.reranker_type == "pytorch"
+
+    @patch("local_reranker.cli.run_server")
+    @patch("sys.argv", ["local-reranker", "--model", "custom-model-name"])
+    def test_main_model_argument(self, mock_run_server):
+        """Test main function with custom model."""
+        main()
+
+        mock_run_server.assert_called_once()
+        args = mock_run_server.call_args[0][0]  # First positional argument (Settings)
+        assert args.model_name == "custom-model-name"
+
+    @patch("local_reranker.cli.run_server")
+    @patch(
+        "sys.argv",
+        ["local-reranker", "--reranker", "pytorch", "--model", "custom-model"],
+    )
+    def test_main_reranker_and_model_arguments(self, mock_run_server):
+        """Test main function with both reranker and model arguments."""
+        main()
+
+        mock_run_server.assert_called_once()
+        args = mock_run_server.call_args[0][0]  # First positional argument (Settings)
+        assert args.reranker_type == "pytorch"
+        assert args.model_name == "custom-model"
+
+    @patch("builtins.print")
+    @patch("sys.argv", ["local-reranker", "config", "show"])
+    def test_main_config_show_command(self, mock_print):
+        """Test main function with config show command."""
+        with pytest.raises(SystemExit) as exc_info:
+            main()
+
+        # Should exit normally (not due to error)
+        assert exc_info.value.code is None
+        # Verify that print was called (config output)
+        mock_print.assert_called()
 
 
 class TestCLILogging:

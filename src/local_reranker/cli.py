@@ -3,70 +3,179 @@
 
 import argparse
 import logging
+import os
+import sys
 
 import uvicorn
+from .config import Settings, get_available_rerankers, get_effective_model_name
 
 logger = logging.getLogger(__name__)
 
 
-def run_server(
-    host: str = "0.0.0.0",
-    port: int = 8010,
-    log_level: str = "info",
-    reload: bool = False,
-) -> None:
+def run_server(settings: Settings) -> None:
     """Run the Local Reranker API server.
 
     Args:
-        host: Host to bind the server to.
-        port: Port to bind the server to.
-        log_level: Uvicorn log level.
-        reload: Enable auto-reload for development.
+        settings: Configuration settings.
     """
+    # Set environment variables for the API to use
+    os.environ["RERANKER_RERANKER_TYPE"] = settings.reranker_type
+    if settings.model_name:
+        os.environ["RERANKER_MODEL_NAME"] = settings.model_name
+
     uvicorn.run(
         "local_reranker.api:app",
-        host=host,
-        port=port,
-        log_level=log_level,
-        reload=reload,
+        host=settings.host,
+        port=settings.port,
+        log_level=settings.log_level,
+        reload=settings.reload,
     )
+
+
+def config_show(settings: Settings) -> None:
+    """Show current configuration."""
+    print("Current Configuration:")
+    print(f"  Reranker Type: {settings.reranker_type}")
+    print(f"  Model Name: {get_effective_model_name(settings)}")
+    print(f"  Host: {settings.host}")
+    print(f"  Port: {settings.port}")
+    print(f"  Log Level: {settings.log_level}")
+    print(f"  Reload: {settings.reload}")
+    print()
+    print("Available Rerankers:")
+    for reranker_type, description in get_available_rerankers().items():
+        marker = " (current)" if reranker_type == settings.reranker_type else ""
+        print(f"  {reranker_type}: {description}{marker}")
 
 
 def main() -> None:
     """Entry point for the CLI."""
-    parser = argparse.ArgumentParser(description="Run the Local Reranker API server.")
-    parser.add_argument(
-        "--host",
-        type=str,
-        default="0.0.0.0",
-        help="Host to bind the server to (default: 0.0.0.0).",
-    )
-    parser.add_argument(
-        "--port",
-        type=int,
-        default=8010,
-        help="Port to bind the server to (default: 8010).",
-    )
-    parser.add_argument(
-        "--log-level",
-        type=str,
-        default="info",
-        choices=["debug", "info", "warning", "error", "critical"],
-        help="Uvicorn log level (default: info).",
-    )
-    parser.add_argument(
-        "--reload", action="store_true", help="Enable auto-reload for development."
-    )
+    # Check for backward compatibility first
+    # If no subcommand is provided, or if old-style arguments are detected, use old format
+    if len(sys.argv) == 1 or (
+        len(sys.argv) > 1 and sys.argv[1] not in ["serve", "config"]
+    ):
+        # Old-style arguments (backward compatibility)
+        parser = argparse.ArgumentParser(
+            description="Run the Local Reranker API server."
+        )
+        parser.add_argument(
+            "--reranker",
+            type=str,
+            default="pytorch",
+            choices=list(get_available_rerankers().keys()),
+            help="Reranker type to use (default: pytorch).",
+        )
+        parser.add_argument(
+            "--model",
+            type=str,
+            help="Model name to use (overrides reranker default).",
+        )
+        parser.add_argument(
+            "--host",
+            type=str,
+            default="0.0.0.0",
+            help="Host to bind the server to (default: 0.0.0.0).",
+        )
+        parser.add_argument(
+            "--port",
+            type=int,
+            default=8010,
+            help="Port to bind the server to (default: 8010).",
+        )
+        parser.add_argument(
+            "--log-level",
+            type=str,
+            default="info",
+            choices=["debug", "info", "warning", "error", "critical"],
+            help="Uvicorn log level (default: info).",
+        )
+        parser.add_argument(
+            "--reload", action="store_true", help="Enable auto-reload for development."
+        )
+        args = parser.parse_args()
+        args.command = "serve"
+    else:
+        # New-style subcommand format
+        parser = argparse.ArgumentParser(description="Local Reranker CLI.")
+        subparsers = parser.add_subparsers(dest="command", help="Available commands")
 
-    args = parser.parse_args()
+        # Server command
+        server_parser = subparsers.add_parser(
+            "serve", help="Run the Local Reranker API server."
+        )
+        server_parser.add_argument(
+            "--reranker",
+            type=str,
+            default="pytorch",
+            choices=list(get_available_rerankers().keys()),
+            help="Reranker type to use (default: pytorch).",
+        )
+        server_parser.add_argument(
+            "--model",
+            type=str,
+            help="Model name to use (overrides reranker default).",
+        )
+        server_parser.add_argument(
+            "--host",
+            type=str,
+            default="0.0.0.0",
+            help="Host to bind the server to (default: 0.0.0.0).",
+        )
+        server_parser.add_argument(
+            "--port",
+            type=int,
+            default=8010,
+            help="Port to bind the server to (default: 8010).",
+        )
+        server_parser.add_argument(
+            "--log-level",
+            type=str,
+            default="info",
+            choices=["debug", "info", "warning", "error", "critical"],
+            help="Uvicorn log level (default: info).",
+        )
+        server_parser.add_argument(
+            "--reload", action="store_true", help="Enable auto-reload for development."
+        )
 
-    logger.info(f"Starting Local Reranker API server on {args.host}:{args.port}")
-    run_server(
-        host=args.host,
-        port=args.port,
-        log_level=args.log_level,
-        reload=args.reload,
-    )
+        # Config command
+        config_parser = subparsers.add_parser(
+            "config", help="Configuration management."
+        )
+        config_subparsers = config_parser.add_subparsers(
+            dest="config_action", help="Config actions"
+        )
+        config_subparsers.add_parser("show", help="Show current configuration.")
+
+        args = parser.parse_args()
+
+    # Handle config command
+    if args.command == "config":
+        if args.config_action == "show":
+            settings = Settings()
+            config_show(settings)
+        else:
+            config_parser.print_help()
+        return
+
+    # Handle serve command
+    if args.command == "serve":
+        settings = Settings(
+            reranker_type=args.reranker,
+            model_name=args.model,
+            host=args.host,
+            port=args.port,
+            log_level=args.log_level,
+            reload=args.reload,
+        )
+
+        logger.info(
+            f"Starting Local Reranker API server on {settings.host}:{settings.port}"
+        )
+        logger.info(f"Using reranker: {settings.reranker_type}")
+        logger.info(f"Using model: {get_effective_model_name(settings)}")
+        run_server(settings)
 
 
 if __name__ == "__main__":

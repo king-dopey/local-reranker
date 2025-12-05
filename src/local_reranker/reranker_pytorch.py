@@ -14,7 +14,8 @@ from .models import RerankRequest, RerankResult, RerankDocument
 logger = logging.getLogger(__name__)
 
 # --- Default Model ---
-# Can be overridden during initialization or potentially via API request in future
+# Default model is now managed in config.py
+# This constant is kept for backward compatibility
 DEFAULT_MODEL_NAME = "jinaai/jina-reranker-v2-base-multilingual"
 
 

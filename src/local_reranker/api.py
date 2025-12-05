@@ -10,11 +10,16 @@ import torch
 from fastapi import FastAPI, HTTPException, Depends, Request
 from .models import RerankRequest, RerankResponse
 from .reranker import Reranker as RerankerProtocol
-from .reranker_pytorch import Reranker, DEFAULT_MODEL_NAME
+from .reranker_pytorch import Reranker
+from .config import Settings, get_effective_model_name
 
 # --- Logging Setup ---
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+
+# --- Configuration ---
+settings = Settings()
 
 
 # --- App Lifespan Management (Load model on startup, cleanup on shutdown) ---
@@ -24,9 +29,19 @@ async def lifespan(app: FastAPI):
     logger.info("Lifespan startup: Loading reranker model...")
     reranker_instance = None
     try:
-        # TODO: Make model name configurable (e.g., via environment variable)
-        reranker_instance = Reranker(model_name=DEFAULT_MODEL_NAME)
+        # Get configuration from environment variables
+        model_name = get_effective_model_name(settings)
+        logger.info(f"Loading reranker type: {settings.reranker_type}")
+        logger.info(f"Loading model: {model_name}")
+
+        # For now, only pytorch is supported
+        if settings.reranker_type == "pytorch":
+            reranker_instance = Reranker(model_name=model_name)
+        else:
+            raise ValueError(f"Unsupported reranker type: {settings.reranker_type}")
+
         app.state.reranker = reranker_instance  # Store instance in app state
+        app.state.settings = settings  # Store settings for reference
         logger.info("Reranker model loaded successfully and stored in app state.")
     except Exception as e:
         logger.error(

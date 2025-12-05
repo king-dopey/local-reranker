@@ -26,12 +26,13 @@ dependencies = [
     "fastapi>=0.109.0,<0.110.0",
     "uvicorn[standard]>=0.29.0,<0.30.0",
     "pydantic>=2.0,<3.0",
+    "pydantic-settings>=2.0.0",
     "sentence-transformers>=4.0.2,<4.1.0",
     "torch>=2.0.0,<3.0.0",
     "transformers>=4.51.3,<5.0.0",
     "tokenizers>=0.21.1,<0.22.0",
     "accelerate>=0.28.0,<0.29.0",
-    "einops>=0.8.0,<0.9.0", 
+    "einops>=0.8.0,<0.9.0",
 ] 
 
 [project.optional-dependencies]
