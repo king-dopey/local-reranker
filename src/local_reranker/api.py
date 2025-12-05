@@ -4,13 +4,13 @@
 import logging
 import time
 import uuid
-from typing import List
 from contextlib import asynccontextmanager
 import torch
 
 from fastapi import FastAPI, HTTPException, Depends, Request
-from .models import RerankRequest, RerankResponse, RerankResult, RerankDocument
-from .reranker import Reranker, DEFAULT_MODEL_NAME
+from .models import RerankRequest, RerankResponse
+from .reranker import Reranker as RerankerProtocol
+from .reranker_pytorch import Reranker, DEFAULT_MODEL_NAME
 
 # --- Logging Setup ---
 logging.basicConfig(level=logging.INFO)
@@ -81,7 +81,7 @@ def get_reranker(request: Request):
 # --- API Endpoints ---
 @app.post("/v1/rerank", response_model=RerankResponse)
 async def rerank_endpoint(
-    request_body: RerankRequest, reranker: Reranker = Depends(get_reranker)
+    request_body: RerankRequest, reranker: RerankerProtocol = Depends(get_reranker)
 ):
     """Handles reranking requests, compatible with Jina's /v1/rerank API."""
     start_time = time.time()
@@ -91,37 +91,8 @@ async def rerank_endpoint(
     # logger.info(f"[{request_id}] Reranking request: {request_body}")
     try:
         # Call the reranker's rerank method
-        # 1. Compute scores
-        indexed_scores = reranker.compute_scores(
-            query=request_body.query,
-            documents=request_body.documents,
-        )
+        results = reranker.rerank(request_body)
 
-        # 2. Sort results by score (descending)
-        indexed_scores.sort(key=lambda x: x[1], reverse=True)
-
-        # 3. Apply top_n limit
-        if request_body.top_n is not None:
-            indexed_scores = indexed_scores[: request_body.top_n]
-
-        # 4. Format the response
-        results: List[RerankResult] = []
-        for index, score in indexed_scores:
-            doc_content = None
-            if request_body.return_documents:
-                original_doc = request_body.documents[index]
-                doc_text = (
-                    original_doc
-                    if isinstance(original_doc, str)
-                    else original_doc.get("text", "")
-                )
-                doc_content = RerankDocument(text=doc_text)
-
-            results.append(
-                RerankResult(
-                    document=doc_content, index=index, relevance_score=float(score)
-                )
-            )
         # Add top score and first few characters of top document to the log message
         top_doc_preview = ""
         top_score = "N/A"
